@@ -1,138 +1,336 @@
 # AskDB
 
-Ask a database questions in plain English. AskDB writes SQL, and it **asks you back only when the answer would actually change**.
+> **Ask your database questions in plain English. Get answers instantly. No SQL knowledge needed.**
 
-Most text-to-SQL demos either guess silently or ask "did you mean…?" about everything. AskDB does neither:
+AskDB is a full-stack AI application that converts natural language questions into SQL, executes them safely, and — unlike every other text-to-SQL tool — **only asks for clarification when the answer would actually be different** depending on what you meant.
 
-1. The model drafts up to four readings of your question ("best customer" → by revenue? by order count?).
-2. Every reading is parsed, guarded, and **executed read-only**.
-3. The result sets are compared. If they are the same rows, you just get the answer. If they differ, you see each option **with a preview of its actual rows** and pick one.
-4. Your pick is saved as a *proposed* glossary definition. After an admin approves it, nobody is asked that again.
+---
 
-The claim "asking back this way beats guessing and beats an LLM deciding when to ask" is testable, so the repo ships an evaluation harness that runs the same questions in three modes (baseline, LLM-classifier, execution-based).
+## The Problem AskDB Solves
 
-## Quick start (no Docker, no API key)
+When a business user asks *"Who is our best customer?"*, this question is ambiguous:
 
-Requires Node 20.11 or newer.
+- Best by **total revenue**?
+- Best by **number of orders**?
+
+Most text-to-SQL tools either **guess silently** (wrong answer, no warning) or **ask about everything** (annoying, even for obvious questions). AskDB does neither.
+
+**AskDB's approach:** Write SQL for every possible meaning → run them all → compare results. If the results are identical, just show the answer. If they differ, show the user both options **with real data previews** and let them pick. The choice is saved so the same question is never asked again.
+
+---
+
+## Demo
+
+```
+You:    Who is our best customer?
+
+AskDB:  "best customer" can mean different things here. Which did you mean?
+
+        Option A — By total revenue spent        Option B — By number of orders placed
+        ┌─────────────────────┬──────────┐       ┌─────────────────────┬────────┐
+        │ customer_unique_id  │ revenue  │       │ customer_unique_id  │ orders │
+        ├─────────────────────┼──────────┤       ├─────────────────────┼────────┤
+        │ abc123...           │ R$4,820  │       │ xyz789...           │   7    │
+        └─────────────────────┴──────────┘       └─────────────────────┴────────┘
+
+You:    Option A
+
+AskDB:  Showing top customer by revenue — abc123 with R$4,820 total spend.
+        [Definition saved. Next time "best customer" = by revenue, no question needed.]
+```
+
+---
+
+## Quick Start — Zero Setup, No API Key Needed
+
+> Requires **Node.js 20.11+**
 
 ```bash
+# 1. Clone and install
+git clone https://github.com/dhruvahari27/AskDB.git
+cd AskDB
 npm install
-cp .env.example .env            # Windows PowerShell: Copy-Item .env.example .env
-npm run db:embedded             # terminal 1: starts a local PostgreSQL on port 5433, leave it running
-npm run setup                   # terminal 2: creates tables, read-only role, sample warehouse
-npm run dev                     # API on :4711, web app on http://localhost:4710 (change PORT / WEB_PORT in .env if these are taken)
+
+# 2. Copy environment file
+cp .env.example .env          # Mac/Linux
+Copy-Item .env.example .env   # Windows PowerShell
+
+# 3. Start the database (keep this terminal open)
+npm run db:embedded
+
+# 4. In a new terminal — create tables and load sample data
+npm run setup
+
+# 5. In another new terminal — start the app
+npm run dev
 ```
 
-Open http://localhost:4710, create an account (the first account becomes the admin), and try **"Who is our best customer?"**.
+Open **http://localhost:4710** → create an account → try **"Who is our best customer?"**
 
-With `LLM_PROVIDER=mock` (the default) a deterministic offline model answers a handful of sample questions, so everything is clickable with zero setup. **It is a demo stand-in, not a language model.** For free-form questions set a real provider in `.env`:
+The default `LLM_PROVIDER=mock` runs fully offline with deterministic demo answers — no API key needed to explore the app.
 
-```
-LLM_PROVIDER=groq        # or gemini
-GROQ_API_KEY=...         # https://console.groq.com   (free tier)
-GEMINI_API_KEY=...       # https://aistudio.google.com (free tier)
-```
+---
 
-Model names change over time; if a provider returns "model not found", update `GROQ_MODEL` / `GEMINI_MODEL` in `.env`.
+## Enable a Real LLM (Free Tier)
 
-Production-style run (one process serves API and built UI): `npm run build && npm start`, then open http://localhost:4711. Set a real `JWT_SECRET` first; in production mode the server refuses to start with the development secret.
+Edit `.env` and set one of these:
 
-Docker: `JWT_SECRET=$(openssl rand -hex 32) docker compose up --build`.
+```env
+# Option 1: Groq (Llama 3.3 — fast, free tier)
+LLM_PROVIDER=groq
+GROQ_API_KEY=your_key_here     # https://console.groq.com
 
-## What is in the box
-
-| Area | What it does |
-| --- | --- |
-| **Overview** | Questions asked, how often it asked back, latency, daily token budget, 7-day chart, recent questions |
-| **Ask** | Conversations, three modes, live trace of every step over SSE (reconnects and resumes), result as table / chart / SQL / explanation, assumption chips, thumbs up/down with a "correct SQL" form |
-| **Glossary** | Approve / reject / edit learned definitions (admin). Only approved terms ever influence answers |
-| **Schema** | Tables, keys, row estimates, and which columns are hidden as personal data |
-| **Evaluation** | Per-mode metrics and per-question failures from saved eval runs |
-| **Help & first steps** | Welcome tour on first sign-in (replay from the `?` button), a "Getting started" checklist that ticks off from real activity, an in-context "Why am I being asked this?" explainer, and a Help page with tips and FAQ |
-| **MCP server** | `npm run mcp`: AskDB as tools for any MCP client (see below) |
-
-## How the pieces fit
-
-```
-apps/web      React 19 + Vite UI (own CSS, light/dark)
-apps/api      Express 5 REST + SSE, JWT cookie auth, rate limit, daily token budget
-apps/mcp      MCP stdio server (describe_schema, ask_database, answer_clarification)
-packages/agent       LangGraph.js graph: loadContext → classify? → draft → execute → compare → ask (interrupt) → respond
-packages/sql-guard   Parses SQL with PostgreSQL's own parser and walks the tree; executes read-only
-packages/evals       Dataset, simulated user, execution-accuracy scorer, CLI
-packages/shared      Zod schemas, config, result-normalisation rules shared by app and scorer
-warehouse     Olist-shaped sample data (generated, deterministic) or your own Kaggle CSVs
+# Option 2: Google Gemini (free tier)
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_key_here   # https://aistudio.google.com
 ```
 
-**Clarification is a graph interrupt.** When readings disagree the graph calls `interrupt()`; the state is checkpointed in Postgres (`langgraph` schema), so a paused question survives a server restart. This is covered by a test that boots a second server instance and finishes the question.
+---
 
-**What "same result" means** (`packages/shared/src/normalize.ts`, used by both the product and the scorer): row order and column order are ignored, numbers compare at 2 decimals, dates compare as strings.
-
-**Relative dates use the data's as-of date**, not today's date. The sample data ends on 2018-08-29, so "last month" means July 2018. The as-of date is shown on the Overview page.
-
-### SQL safety, in layers
-
-The model never gets a write path. Each layer assumes the one above it failed:
-
-1. **Parse tree guard**: exactly one statement, a `SELECT`; no write statements even inside CTEs; no `SELECT … INTO`, no `FOR UPDATE`; table and schema allowlist; function deny-list (`pg_*`, `dblink`, `lo_*`, `set_config`, …); size-sensitive functions (`repeat`, `generate_series`, …) rejected for huge arguments; personal-data columns, `SELECT *` over tables that contain them, and whole-row references rejected. 83 attack/allow cases in `packages/sql-guard/test`.
-2. **Database role** `askdb_ro`: `SELECT` only, `default_transaction_read_only`, fixed `search_path`.
-3. **`BEGIN READ ONLY` + always `ROLLBACK`**, `statement_timeout`, `EXPLAIN` cost ceiling, result wrapped in `LIMIT n+1`.
-4. **The model sees no personal data**: PII columns are omitted from the schema prompt, and the explanation prompt receives column names only, never row values.
-
-## Evaluation
+## Run with Docker (One Command)
 
 ```bash
-npm run lint:data                                   # every gold query parses, passes the guard, runs, returns rows
-npm run evals -- --modes baseline,classifier,execution
-npm run evals -- --split test --defaults            # held-out split, with the default approved glossary terms
+JWT_SECRET=$(openssl rand -hex 32) docker compose up --build
 ```
 
-- Metrics: execution accuracy (overall, on ambiguous, on clear), **over-asking rate** (asked on a clear question), **ambiguity recall**, average turns, p50/p95 latency, tokens per question.
-- A simulated user (an LLM given the case's true intent) answers clarifying questions, so asking can actually help or hurt the score.
-- The default glossary is empty so "last month" counts as ambiguous; pass `--defaults` to start from the app's defaults.
-- Results are saved to `packages/evals/results/*.json` and appear on the Evaluation page.
-- **The CLI refuses to run with the mock model** (its scores would mean nothing). `--smoke` runs the harness with the mock and saves nothing.
-- LLM replies are cached on disk (`.cache/llm`) so reruns are cheap and reproducible.
+Open **http://localhost:4711**
 
-**Be honest about the dataset.** It ships with 36 questions (16 clear, 20 ambiguous across metric / time / entity / aggregation / scope / join-path), not hundreds. That is enough to see differences between modes but not enough to publish a leaderboard. Two things would make it credible: grow it to 100+, and have someone else write the `test` split without looking at your prompts. Expect variance from the model and from the simulated user; report how many runs you averaged.
+---
 
-## Use it from an MCP client
+## How It Works — The 6-Step Agent
 
-`npm run mcp` starts a stdio MCP server exposing:
+Every question you ask goes through a LangGraph agent with 6 steps, visible in real-time in the UI:
 
-- `describe_schema`: tables and columns (personal data hidden) and the as-of date
-- `ask_database`: answers, or returns `needs_clarification` with options **and row previews**
-- `answer_clarification`: continue with `optionId` or `freeText`
-
-The point is that the *calling agent* decides what to do with an ambiguity (resolve it from conversation context or ask the human) instead of the tool guessing. Example Claude Desktop entry:
-
-```json
-{ "mcpServers": { "askdb": { "command": "npx", "args": ["tsx", "apps/mcp/src/index.ts"], "cwd": "/absolute/path/to/askdb" } } }
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        LangGraph Agent                          │
+│                                                                 │
+│  1. loadContext  →  Read schema + glossary definitions          │
+│         ↓                                                       │
+│  2. draft        →  Write up to 4 SQL versions (one per meaning)│
+│         ↓                                                       │
+│  3. execute      →  Run all versions (read-only, guarded)       │
+│         ↓                                                       │
+│  4. compare      →  Are the result sets identical?             │
+│         ↓                                                       │
+│  ┌──── same ────────────────────┐                              │
+│  │                              │ different                    │
+│  ↓                              ↓                              │
+│  5a. respond     →  Show answer │  5b. ask  →  Show options    │
+│                                 │              + data previews  │
+│                                 ↓                              │
+│                          6. respond  →  Show chosen answer     │
+│                                        Save definition         │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Paused questions in the MCP server live in memory for the life of the process.
+**Clarification state is checkpointed in PostgreSQL.** If the server restarts while waiting for your answer, the conversation resumes exactly where it left off.
 
-## Configuration
+---
 
-See `.env.example`; every variable is documented there. Notable ones: `DAILY_TOKEN_BUDGET` (per user, protects your free API key), `ASK_RATE_LIMIT_PER_MIN`, `STATEMENT_TIMEOUT_MS`, `MAX_RESULT_ROWS`, `MAX_PLAN_COST`, optional `REDIS_URL` for the LLM response cache.
+## Features
 
-To use the real Olist data, put the Kaggle CSVs in `warehouse/data/` and run `npm run setup -- --reset-warehouse`.
+### Ask Page
+- Plain-English question interface with conversation history
+- **Live step trace** — watch each agent step execute in real-time over SSE
+- Results displayed as **Table / Chart / SQL / Plain-English explanation**
+- Assumption chips showing what the AI assumed
+- Thumbs up / down feedback with SQL correction form
+- 3 modes: **Execution** (smart), **Classifier** (LLM-judges ambiguity), **Baseline** (never asks)
 
-## Scripts
+### Dashboard
+- Total questions, clarification rate, average latency
+- Daily token budget usage (protects free API keys)
+- 7-day activity chart — answered directly vs. needed clarification
+- Recent questions list
+- Getting started checklist
 
-| Command | Does |
-| --- | --- |
-| `npm run dev` | API (watch) + web dev server |
-| `npm test` | all tests (database-backed tests skip themselves if Postgres is not running) |
-| `npm run typecheck` | server, packages and web |
-| `npm run e2e` | browser end-to-end suite (23 checks: tour, ask, clarify, feedback, glossary, schema, help, permissions, phone layout). Needs the app running with the mock model and `npx playwright install chromium` once |
-| `npm run evals` / `lint:data` | evaluation harness / dataset check |
-| `npm run build` / `start` | build the UI / run API + UI on :4711 |
+### Glossary (Admin)
+- Review, approve, reject, or edit definitions learned from user choices
+- Approved definitions silently influence all future answers
+- Proposed definitions visible to all; approval restricted to admin
 
-## Known limits
+### Schema Browser
+- All database tables, columns, types, row estimates
+- PII-restricted columns clearly marked
 
-- The schema docs (`warehouse/schema_docs.yaml`) and the glossary defaults are written for the Olist-shaped sample warehouse. Pointing AskDB at a different database means rewriting those descriptions and the PII list; it is not plug-and-play.
-- Table selection for the prompt is lexical (no embeddings). It is fine for 8 tables and will not scale to hundreds without retrieval.
-- The sample data is generated, so absolute numbers are not real-world numbers.
-- Single-node: run state for the live stream is held in memory (it rebuilds the final state from Postgres after a restart, but an in-flight run is lost).
-- Accounts are email + password with a JWT cookie. There is no password reset or email verification.
+### Evaluation Harness
+- 36 benchmark questions (16 clear, 20 ambiguous)
+- Compare all 3 modes: execution accuracy, over-asking rate, ambiguity recall, latency
+- Simulated user answers clarifying questions using the stored true intent
+- Results appear on the Evaluation page in the UI
+
+### MCP Server
+- Expose AskDB as tools for any MCP client (Claude Desktop, etc.)
+- `describe_schema`, `ask_database`, `answer_clarification`
+
+---
+
+## Tech Stack
+
+### Frontend
+| Technology | Role |
+|---|---|
+| React 19 | UI framework |
+| TypeScript | Type safety across all packages |
+| Vite 8 | Build tool and dev server |
+| React Router v7 | Client-side routing |
+| Recharts | Data visualization / charts |
+| Custom CSS | Light/dark theme, responsive layout |
+
+### Backend
+| Technology | Role |
+|---|---|
+| Node.js 20+ | Runtime |
+| Express 5 | REST API + SSE streaming |
+| JWT + bcrypt | Authentication and password hashing |
+| Zod | Input validation and schema definitions |
+| Pino | Structured logging |
+| Helmet + rate-limiter | Security headers and abuse prevention |
+
+### AI / Agent
+| Technology | Role |
+|---|---|
+| LangGraph | Stateful multi-step agent graph |
+| LangChain Core | LLM abstraction layer |
+| Groq (Llama 3.3) | Primary LLM provider (free tier) |
+| Google Gemini | Alternative LLM provider (free tier) |
+| Prompt engineering | Structured prompts for draft / classify / explain |
+
+### Database
+| Technology | Role |
+|---|---|
+| PostgreSQL | App DB + LangGraph checkpoint store |
+| pg (node-postgres) | Node.js database driver |
+| Read-only DB role | Safety layer — AI can never write data |
+| SQL migrations | Versioned schema management |
+
+### DevOps
+| Technology | Role |
+|---|---|
+| Docker + Compose | Containerized production deployment |
+| npm workspaces | Monorepo — 3 apps + 4 packages |
+| Vitest | Unit and integration tests |
+| Playwright | End-to-end browser tests (23 checks) |
+| embedded-postgres | Zero-install local database for development |
+
+---
+
+## SQL Safety — 4 Independent Layers
+
+The AI writes SQL. This is the attack surface. AskDB defends it at every level:
+
+```
+Layer 1 — Parse Tree Guard (packages/sql-guard)
+  Uses PostgreSQL's own parser (libpg-query), not regex.
+  Rejects: non-SELECT statements, writes inside CTEs, SELECT INTO,
+  FOR UPDATE, unknown tables, 30+ dangerous functions (pg_sleep,
+  dblink, set_config...), PII columns, SELECT * on PII tables.
+  → 83 attack/allow test cases
+
+Layer 2 — Read-Only Database Role (askdb_ro)
+  SELECT permission only. default_transaction_read_only = on.
+  Even if Layer 1 fails, the DB user cannot write anything.
+
+Layer 3 — Transaction Wrapping
+  BEGIN READ ONLY. Always ROLLBACK, never COMMIT.
+  5s statement timeout. EXPLAIN cost ceiling. Row limit 500.
+
+Layer 4 — AI Never Sees PII
+  Personal data columns removed from schema prompt.
+  AI cannot reference what it cannot see.
+```
+
+---
+
+## Project Structure
+
+```
+AskDB/
+├── apps/
+│   ├── api/          Express 5 REST API + SSE + JWT auth
+│   ├── web/          React 19 + Vite frontend (7 pages)
+│   └── mcp/          MCP stdio server for AI clients
+├── packages/
+│   ├── agent/        LangGraph agent — the 6-step graph
+│   ├── sql-guard/    Parse-tree SQL safety checker
+│   ├── evals/        Benchmark harness — 36 questions, 3 modes
+│   └── shared/       Zod schemas + result normalisation
+├── warehouse/        Sample e-commerce schema + seed data
+├── migrations/       PostgreSQL schema migrations
+├── scripts/          DB setup and embedded Postgres launcher
+├── e2e/              Playwright end-to-end tests
+├── docker-compose.yml
+├── Dockerfile
+└── .env.example      All config documented
+```
+
+---
+
+## All Commands
+
+| Command | What it does |
+|---|---|
+| `npm run db:embedded` | Start local PostgreSQL on port 5433 |
+| `npm run setup` | Create tables, roles, load sample data |
+| `npm run dev` | API on :4711 + web on :4710 (watch mode) |
+| `npm test` | All unit + integration tests |
+| `npm run typecheck` | TypeScript check across all packages |
+| `npm run e2e` | Playwright browser tests (23 checks) |
+| `npm run evals` | Run evaluation harness (needs real LLM) |
+| `npm run lint:data` | Validate all 36 benchmark questions |
+| `npm run build` | Build production frontend |
+| `npm start` | Serve API + built UI on :4711 |
+| `npm run mcp` | Start MCP stdio server |
+
+---
+
+## Environment Variables
+
+See `.env.example` — every variable is documented. Key ones:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LLM_PROVIDER` | `mock` | `mock` / `groq` / `gemini` |
+| `GROQ_API_KEY` | — | Groq API key |
+| `GEMINI_API_KEY` | — | Gemini API key |
+| `JWT_SECRET` | change-me | Must be changed in production |
+| `DAILY_TOKEN_BUDGET` | `200000` | Per-user token limit (0 = unlimited) |
+| `ASK_RATE_LIMIT_PER_MIN` | `20` | Requests per minute per user |
+| `PORT` | `4711` | API server port |
+| `WEB_PORT` | `4710` | Dev web server port |
+
+---
+
+## Sample Questions to Try
+
+| Type | Question |
+|---|---|
+| Clear | `How many customers do we have?` |
+| Clear | `What is the order status breakdown?` |
+| Clear | `How many delivered orders arrived late?` |
+| Ambiguous | `Who is our best customer?` |
+| Ambiguous | `Show the top 5 sellers` |
+| Uses glossary | `What was the revenue last month?` |
+
+---
+
+## Known Limitations
+
+- Sample data is generated (not real Olist data) — numbers are illustrative
+- Table selection is lexical, not embedding-based — works for 8 tables, won't scale to hundreds
+- Single-node only — in-flight SSE streams are lost on restart (completed state is recovered from Postgres)
+- No password reset or email verification
+- Schema docs written for the sample warehouse — pointing at a different DB requires rewriting `warehouse/schema_docs.yaml`
+
+---
+
+## License
+
+MIT — free to use, modify, and deploy.
+
+---
+
+<div align="center">
+Built with React · Node.js · PostgreSQL · LangGraph · TypeScript
+</div>
