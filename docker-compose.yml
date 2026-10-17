@@ -1,0 +1,43 @@
+# docker compose up --build        -> http://localhost:4711
+# docker compose --profile cache up --build   (also starts Redis for the LLM response cache)
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: askdb
+      POSTGRES_PASSWORD: askdb
+      POSTGRES_DB: askdb_app
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U askdb -d askdb_app"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "4711:4711"
+    environment:
+      APP_DATABASE_URL: postgres://askdb:askdb@db:5432/askdb_app
+      WAREHOUSE_ADMIN_URL: postgres://askdb:askdb@db:5432/askdb_warehouse
+      WAREHOUSE_READONLY_URL: postgres://askdb_ro:askdb_ro@db:5432/askdb_warehouse
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in your shell or a .env file next to docker-compose.yml}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      REDIS_URL: ${REDIS_URL:-}
+      CLIENT_ORIGIN: http://localhost:4711
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["cache"]
+
+volumes:
+  pgdata:

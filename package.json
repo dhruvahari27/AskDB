@@ -1,0 +1,42 @@
+{
+  "name": "askdb",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ask your database in plain language. AskDB asks you back only when the answer would actually change.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "setup": "tsx scripts/setup-db.ts",
+    "db:embedded": "node scripts/embedded-db.mjs",
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "tsx watch apps/api/src/index.ts",
+    "dev:web": "npm run dev -w @askdb/web",
+    "build": "npm run build -w @askdb/web",
+    "start": "tsx apps/api/src/index.ts",
+    "mcp": "tsx apps/mcp/src/index.ts",
+    "evals": "tsx packages/evals/src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json && npm run typecheck -w @askdb/web",
+    "lint:data": "tsx packages/evals/src/validate-dataset.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "concurrently": "^9.1.0",
+    "embedded-postgres": "18.4.0-beta.17",
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "csv-parse": "^7.0.3",
+    "pg": "^8.13.0",
+    "yaml": "^2.6.0"
+  }
+}

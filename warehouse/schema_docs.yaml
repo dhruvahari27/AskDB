@@ -1,0 +1,96 @@
+# Human descriptions for the warehouse. Two jobs:
+#  1. They are what the LLM reads (a column called "price" is much clearer with "excludes freight").
+#  2. `pii: true` columns are removed from the schema the LLM sees AND rejected by sql-guard if a query names them.
+#
+# Pseudonymous ids (customer_unique_id etc.) are NOT tagged: the demo needs "best customer" to be answerable.
+# Free-text fields and fine-grained location are tagged.
+
+tables:
+  customers:
+    description: >
+      One row per customer ID. IMPORTANT: in this dataset customer_id is created per ORDER, so a person who
+      ordered three times has three customer_id values but one customer_unique_id. Use customer_unique_id to
+      count or rank people; use customer_id only to join orders to customers.
+    columns:
+      customer_id: { description: "Key that joins to orders.customer_id. One per order, not one per person." }
+      customer_unique_id: { description: "Identifies the actual person across all of their orders." }
+      customer_zip_code_prefix: { description: "First digits of the customer's postal code.", pii: true }
+      customer_city: { description: "Customer's city (lowercase, Brazilian city name)." }
+      customer_state: { description: "Customer's state, two-letter code such as SP, RJ, MG." }
+
+  orders:
+    description: >
+      One row per order. order_status is one of: delivered, shipped, canceled, unavailable, invoiced,
+      processing, created, approved. Revenue questions usually exclude canceled and unavailable orders,
+      but that is a business choice.
+    columns:
+      order_id: { description: "Primary key." }
+      customer_id: { description: "Joins to customers.customer_id." }
+      order_status: { description: "Lifecycle status: delivered, shipped, canceled, unavailable, invoiced, processing, created, approved." }
+      order_purchase_timestamp: { description: "When the customer placed the order. Use this for 'when was the order made' questions." }
+      order_approved_at: { description: "When payment was approved." }
+      order_delivered_carrier_date: { description: "When the order was handed to the carrier." }
+      order_delivered_customer_date: { description: "When the customer received the order. NULL if not delivered." }
+      order_estimated_delivery_date: { description: "Delivery date promised to the customer." }
+
+  order_items:
+    description: >
+      One row per product line within an order (an order with 3 items has 3 rows). price is the item price and
+      EXCLUDES freight; freight_value is the shipping cost for that item.
+    columns:
+      order_id: { description: "Joins to orders.order_id." }
+      order_item_id: { description: "1-based position of the item within the order." }
+      product_id: { description: "Joins to products.product_id." }
+      seller_id: { description: "Joins to sellers.seller_id. The seller who fulfilled this item." }
+      shipping_limit_date: { description: "Deadline for the seller to hand the item to the carrier." }
+      price: { description: "Item price in Brazilian reais (BRL), excluding freight." }
+      freight_value: { description: "Shipping cost for this item in BRL." }
+
+  order_payments:
+    description: >
+      One row per payment on an order. An order can have several payments (for example part voucher, part card).
+      payment_value is what the customer paid and INCLUDES freight, so summing it per order gives the order total.
+    columns:
+      order_id: { description: "Joins to orders.order_id." }
+      payment_sequential: { description: "1-based index when an order has more than one payment." }
+      payment_type: { description: "credit_card, boleto, voucher, debit_card or not_defined." }
+      payment_installments: { description: "Number of installments chosen by the customer." }
+      payment_value: { description: "Amount paid in BRL, including freight." }
+
+  order_reviews:
+    description: "Customer review of an order. Score is 1 (worst) to 5 (best). Some orders have no review."
+    columns:
+      review_id: { description: "Review identifier." }
+      order_id: { description: "Joins to orders.order_id." }
+      review_score: { description: "Integer from 1 to 5." }
+      review_comment_title: { description: "Free-text title.", pii: true }
+      review_comment_message: { description: "Free-text comment.", pii: true }
+      review_creation_date: { description: "When the review survey was sent." }
+      review_answer_timestamp: { description: "When the customer answered the survey." }
+
+  products:
+    description: "One row per product. The category name is in Portuguese; join product_category_name_translation for English."
+    columns:
+      product_id: { description: "Primary key." }
+      product_category_name: { description: "Category name in Portuguese." }
+      product_name_length: { description: "Characters in the product name." }
+      product_description_length: { description: "Characters in the product description." }
+      product_photos_qty: { description: "Number of product photos." }
+      product_weight_g: { description: "Weight in grams." }
+      product_length_cm: { description: "Length in centimetres." }
+      product_height_cm: { description: "Height in centimetres." }
+      product_width_cm: { description: "Width in centimetres." }
+
+  sellers:
+    description: "One row per seller (merchant) on the marketplace."
+    columns:
+      seller_id: { description: "Primary key." }
+      seller_zip_code_prefix: { description: "First digits of the seller's postal code.", pii: true }
+      seller_city: { description: "Seller's city." }
+      seller_state: { description: "Seller's state, two-letter code." }
+
+  product_category_name_translation:
+    description: "Maps Portuguese category names to English."
+    columns:
+      product_category_name: { description: "Portuguese category name (joins to products.product_category_name)." }
+      product_category_name_english: { description: "English category name. Prefer this for display." }

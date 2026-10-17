@@ -1,0 +1,330 @@
+[
+  {
+    "id": "c01",
+    "question": "How many orders are in the database?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT count(*) AS orders FROM orders",
+    "split": "dev"
+  },
+  {
+    "id": "c02",
+    "question": "How many orders were delivered?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT count(*) AS delivered_orders FROM orders WHERE order_status = 'delivered'",
+    "split": "dev"
+  },
+  {
+    "id": "c03",
+    "question": "How many orders were canceled?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT count(*) AS canceled_orders FROM orders WHERE order_status = 'canceled'",
+    "split": "test"
+  },
+  {
+    "id": "c04",
+    "question": "How many sellers are there?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT count(*) AS sellers FROM sellers",
+    "split": "dev"
+  },
+  {
+    "id": "c05",
+    "question": "What is the average review score?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT round(avg(review_score), 2) AS avg_review_score FROM order_reviews",
+    "split": "dev"
+  },
+  {
+    "id": "c06",
+    "question": "How many products are in the catalog?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT count(*) AS products FROM products",
+    "split": "test"
+  },
+  {
+    "id": "c07",
+    "question": "How many orders were placed in 2017?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT count(*) AS orders FROM orders WHERE order_purchase_timestamp >= DATE '2017-01-01' AND order_purchase_timestamp < DATE '2018-01-01'",
+    "split": "dev"
+  },
+  {
+    "id": "c08",
+    "question": "How many payments are there for each payment type?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT payment_type, count(*) AS payments FROM order_payments GROUP BY payment_type",
+    "split": "dev"
+  },
+  {
+    "id": "c09",
+    "question": "How many delivered orders arrived after the estimated delivery date?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT count(*) AS late_orders FROM orders WHERE order_status = 'delivered' AND order_delivered_customer_date > order_estimated_delivery_date",
+    "split": "test"
+  },
+  {
+    "id": "c10",
+    "question": "How many customer records are in the state SP?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT count(*) AS customers FROM customers WHERE customer_state = 'SP'",
+    "split": "dev"
+  },
+  {
+    "id": "c11",
+    "question": "What is the total freight value across all order items?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT round(sum(freight_value), 2) AS total_freight FROM order_items",
+    "split": "dev"
+  },
+  {
+    "id": "c12",
+    "question": "How many reviews gave a score of 5?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT count(*) AS five_star_reviews FROM order_reviews WHERE review_score = 5",
+    "split": "test"
+  },
+  {
+    "id": "c13",
+    "question": "How many sellers are in each state?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT seller_state, count(*) AS sellers FROM sellers GROUP BY seller_state",
+    "split": "dev"
+  },
+  {
+    "id": "c14",
+    "question": "How many orders are there in each order status?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT order_status, count(*) AS orders FROM orders GROUP BY order_status",
+    "split": "dev"
+  },
+  {
+    "id": "c15",
+    "question": "What is the highest single item price?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT max(price) AS max_price FROM order_items",
+    "split": "test"
+  },
+  {
+    "id": "c16",
+    "question": "What is the average number of payment installments?",
+    "lang": "en",
+    "isAmbiguous": false,
+    "goldSql": "SELECT round(avg(payment_installments), 2) AS avg_installments FROM order_payments",
+    "split": "dev"
+  },
+  {
+    "id": "a01",
+    "question": "Who is our best customer?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "metric",
+    "trueIntent": "Rank customers (by customer_unique_id) by the total amount they paid, excluding canceled and unavailable orders",
+    "goldSql": "SELECT c.customer_unique_id, round(sum(p.payment_value), 2) AS total_paid FROM order_payments p JOIN orders o ON o.order_id = p.order_id JOIN customers c ON c.customer_id = o.customer_id WHERE o.order_status NOT IN ('canceled','unavailable') GROUP BY c.customer_unique_id ORDER BY total_paid DESC, c.customer_unique_id LIMIT 1",
+    "split": "dev"
+  },
+  {
+    "id": "a02",
+    "question": "Show the top 5 sellers",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "metric",
+    "trueIntent": "Rank sellers by revenue: the sum of item prices, excluding canceled and unavailable orders",
+    "goldSql": "SELECT i.seller_id, round(sum(i.price), 2) AS revenue FROM order_items i JOIN orders o ON o.order_id = i.order_id WHERE o.order_status NOT IN ('canceled','unavailable') GROUP BY i.seller_id ORDER BY revenue DESC, i.seller_id LIMIT 5",
+    "split": "dev"
+  },
+  {
+    "id": "a03",
+    "question": "What is our best selling product category?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "metric",
+    "trueIntent": "The category with the most items sold (count of order items), excluding canceled and unavailable orders",
+    "goldSql": "SELECT t.product_category_name_english AS category, count(*) AS items_sold FROM order_items i JOIN orders o ON o.order_id = i.order_id JOIN products p ON p.product_id = i.product_id JOIN product_category_name_translation t ON t.product_category_name = p.product_category_name WHERE o.order_status NOT IN ('canceled','unavailable') GROUP BY t.product_category_name_english ORDER BY items_sold DESC, category LIMIT 1",
+    "split": "test"
+  },
+  {
+    "id": "a04",
+    "question": "What is the revenue by product category?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "metric",
+    "trueIntent": "Revenue is the sum of item prices, excluding freight and excluding canceled and unavailable orders",
+    "goldSql": "SELECT t.product_category_name_english AS category, round(sum(i.price), 2) AS revenue FROM order_items i JOIN orders o ON o.order_id = i.order_id JOIN products p ON p.product_id = i.product_id JOIN product_category_name_translation t ON t.product_category_name = p.product_category_name WHERE o.order_status NOT IN ('canceled','unavailable') GROUP BY t.product_category_name_english",
+    "split": "dev"
+  },
+  {
+    "id": "a05",
+    "question": "What was our total revenue?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "metric",
+    "trueIntent": "Total revenue is the sum of payment values, excluding canceled and unavailable orders",
+    "goldSql": "SELECT round(sum(p.payment_value), 2) AS revenue FROM order_payments p JOIN orders o ON o.order_id = p.order_id WHERE o.order_status NOT IN ('canceled','unavailable')",
+    "split": "dev"
+  },
+  {
+    "id": "a06",
+    "question": "Which state is our biggest market?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "metric",
+    "trueIntent": "The customer state with the most orders",
+    "goldSql": "SELECT c.customer_state, count(*) AS orders FROM orders o JOIN customers c ON c.customer_id = o.customer_id GROUP BY c.customer_state ORDER BY orders DESC, c.customer_state LIMIT 1",
+    "split": "test"
+  },
+  {
+    "id": "a07",
+    "question": "How many orders did we get last month?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "time",
+    "trueIntent": "The previous full calendar month before the as-of date",
+    "goldSql": "SELECT count(*) AS orders FROM orders WHERE order_purchase_timestamp >= DATE '{{prev_month_start}}' AND order_purchase_timestamp < DATE '{{month_start}}'",
+    "split": "dev"
+  },
+  {
+    "id": "a08",
+    "question": "What was the revenue last quarter?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "time",
+    "trueIntent": "Payments for the previous full calendar quarter before the as-of date, excluding canceled and unavailable orders",
+    "goldSql": "SELECT round(sum(p.payment_value), 2) AS revenue FROM order_payments p JOIN orders o ON o.order_id = p.order_id WHERE o.order_status NOT IN ('canceled','unavailable') AND o.order_purchase_timestamp >= DATE '{{prev_quarter_start}}' AND o.order_purchase_timestamp < DATE '{{quarter_start}}'",
+    "split": "dev"
+  },
+  {
+    "id": "a09",
+    "question": "How many orders have we had this year?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "time",
+    "trueIntent": "From January 1 of the as-of year up to and including the as-of date",
+    "goldSql": "SELECT count(*) AS orders FROM orders WHERE order_purchase_timestamp >= DATE '{{year_start}}' AND order_purchase_timestamp < DATE '{{tomorrow}}'",
+    "split": "test"
+  },
+  {
+    "id": "a10",
+    "question": "How many orders did we get last year?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "time",
+    "trueIntent": "The previous full calendar year before the as-of date",
+    "goldSql": "SELECT count(*) AS orders FROM orders WHERE order_purchase_timestamp >= DATE '{{prev_year_start}}' AND order_purchase_timestamp < DATE '{{year_start}}'",
+    "split": "dev"
+  },
+  {
+    "id": "a11",
+    "question": "How many customers do we have?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "entity",
+    "trueIntent": "Distinct people: count of distinct customer_unique_id",
+    "goldSql": "SELECT count(DISTINCT customer_unique_id) AS customers FROM customers",
+    "split": "dev"
+  },
+  {
+    "id": "a12",
+    "question": "What is the average order value?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "entity",
+    "trueIntent": "Total payments divided by the number of distinct orders, excluding canceled and unavailable orders",
+    "goldSql": "SELECT round(sum(p.payment_value) / count(DISTINCT p.order_id), 2) AS avg_order_value FROM order_payments p JOIN orders o ON o.order_id = p.order_id WHERE o.order_status NOT IN ('canceled','unavailable')",
+    "split": "test"
+  },
+  {
+    "id": "a13",
+    "question": "How many active sellers do we have?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "entity",
+    "trueIntent": "Sellers that sold at least one item (distinct seller_id in order_items)",
+    "goldSql": "SELECT count(DISTINCT seller_id) AS active_sellers FROM order_items",
+    "split": "dev"
+  },
+  {
+    "id": "a14",
+    "question": "What is the average delivery time?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "aggregation",
+    "trueIntent": "Average number of days from purchase to delivery to the customer, delivered orders only",
+    "goldSql": "SELECT round(avg(extract(epoch FROM (order_delivered_customer_date - order_purchase_timestamp)) / 86400.0), 2) AS avg_delivery_days FROM orders WHERE order_status = 'delivered' AND order_delivered_customer_date IS NOT NULL",
+    "split": "dev"
+  },
+  {
+    "id": "a15",
+    "question": "What is the typical order size?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "aggregation",
+    "trueIntent": "The median total payment value per order, excluding canceled and unavailable orders",
+    "goldSql": "SELECT round(percentile_cont(0.5) WITHIN GROUP (ORDER BY t.total)::numeric, 2) AS median_order_value FROM (SELECT p.order_id, sum(p.payment_value) AS total FROM order_payments p JOIN orders o ON o.order_id = p.order_id WHERE o.order_status NOT IN ('canceled','unavailable') GROUP BY p.order_id) t",
+    "split": "test"
+  },
+  {
+    "id": "a16",
+    "question": "How many orders were completed?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "scope",
+    "trueIntent": "Completed means delivered",
+    "goldSql": "SELECT count(*) AS completed_orders FROM orders WHERE order_status = 'delivered'",
+    "split": "dev"
+  },
+  {
+    "id": "a17",
+    "question": "Which products sell the most?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "scope",
+    "trueIntent": "Top 10 products by number of units sold (count of order items), excluding canceled and unavailable orders",
+    "goldSql": "SELECT i.product_id, count(*) AS units FROM order_items i JOIN orders o ON o.order_id = i.order_id WHERE o.order_status NOT IN ('canceled','unavailable') GROUP BY i.product_id ORDER BY units DESC, i.product_id LIMIT 10",
+    "split": "dev"
+  },
+  {
+    "id": "a18",
+    "question": "How many orders were late?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "scope",
+    "trueIntent": "Delivered orders that arrived after the estimated delivery date",
+    "goldSql": "SELECT count(*) AS late_orders FROM orders WHERE order_status = 'delivered' AND order_delivered_customer_date > order_estimated_delivery_date",
+    "split": "test"
+  },
+  {
+    "id": "a19",
+    "question": "What is the average freight per order?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "join path",
+    "trueIntent": "Total freight divided by the number of distinct orders (per order, not per item)",
+    "goldSql": "SELECT round(sum(freight_value) / count(DISTINCT order_id), 2) AS avg_freight_per_order FROM order_items",
+    "split": "dev"
+  },
+  {
+    "id": "a20",
+    "question": "What is the average review score by seller?",
+    "lang": "en",
+    "isAmbiguous": true,
+    "ambiguityType": "join path",
+    "trueIntent": "Each seller's average review score over the orders they fulfilled, counting each order's review once per seller",
+    "goldSql": "SELECT s.seller_id, round(avg(x.review_score), 2) AS avg_review_score FROM (SELECT DISTINCT i.seller_id, r.review_id, r.review_score FROM order_items i JOIN order_reviews r ON r.order_id = i.order_id) x JOIN sellers s ON s.seller_id = x.seller_id GROUP BY s.seller_id",
+    "split": "dev"
+  }
+]
