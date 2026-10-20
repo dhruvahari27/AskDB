@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { pino } from 'pino';
 import { PostgresSaver } from '@langchain/langgraph-checkpoint-postgres';
-import { getConfig } from '@askdb/shared';
+import { getConfig, sanitizeForDb } from '@askdb/shared';
 import { createReadOnlyPool } from '@askdb/sql-guard';
 import { AgentRunner, PgGlossary, cachedCatalogProvider, createProvider } from '@askdb/agent';
 import { createApp } from './app';
@@ -16,6 +16,15 @@ if (cfg.NODE_ENV === 'production' && (cfg.JWT_SECRET.startsWith('dev-only') || c
 }
 
 const db = new pg.Pool({ connectionString: cfg.APP_DATABASE_URL, max: 10 });
+
+const origQuery = db.query.bind(db);
+db.query = ((text: any, params?: any, cb?: any) => {
+  if (Array.isArray(params)) {
+    params = params.map(sanitizeForDb);
+  }
+  return origQuery(text, params, cb);
+}) as typeof db.query;
+
 const warehouse = createReadOnlyPool(cfg.WAREHOUSE_READONLY_URL, 6);
 
 try {

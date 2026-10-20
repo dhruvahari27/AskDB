@@ -43,38 +43,40 @@ export function loadSchemaDocs(path = resolve(repoRoot, 'warehouse/schema_docs.y
 }
 
 export async function loadCatalog(pool: pg.Pool, docs: DocsFile = loadSchemaDocs(), schema = 'analytics'): Promise<SchemaCatalog> {
-  const cols = await pool.query<{ table_name: string; column_name: string; data_type: string }>(
-    `SELECT table_name, column_name, data_type
-       FROM information_schema.columns
-      WHERE table_schema = $1
-      ORDER BY table_name, ordinal_position`,
-    [schema],
-  );
-  const pks = await pool.query<{ table_name: string; column_name: string }>(
-    `SELECT tc.table_name, kcu.column_name
-       FROM information_schema.table_constraints tc
-       JOIN information_schema.key_column_usage kcu
-         ON kcu.constraint_name = tc.constraint_name AND kcu.table_schema = tc.table_schema
-      WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = $1`,
-    [schema],
-  );
-  const fks = await pool.query<{ table_name: string; column_name: string; ftable: string; fcolumn: string }>(
-    `SELECT cl.relname AS table_name, a.attname AS column_name, fcl.relname AS ftable, fa.attname AS fcolumn
-       FROM pg_constraint c
-       JOIN pg_class cl ON cl.oid = c.conrelid
-       JOIN pg_namespace n ON n.oid = cl.relnamespace
-       JOIN pg_class fcl ON fcl.oid = c.confrelid
-       JOIN LATERAL unnest(c.conkey, c.confkey) AS k(attnum, fattnum) ON true
-       JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
-       JOIN pg_attribute fa ON fa.attrelid = c.confrelid AND fa.attnum = k.fattnum
-      WHERE c.contype = 'f' AND n.nspname = $1`,
-    [schema],
-  );
-  const est = await pool.query<{ relname: string; n: number }>(
-    `SELECT c.relname, c.reltuples::bigint AS n FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = $1 AND c.relkind = 'r'`,
-    [schema],
-  );
+  const [cols, pks, fks, est] = await Promise.all([
+    pool.query<{ table_name: string; column_name: string; data_type: string }>(
+      `SELECT table_name, column_name, data_type
+         FROM information_schema.columns
+        WHERE table_schema = $1
+        ORDER BY table_name, ordinal_position`,
+      [schema],
+    ),
+    pool.query<{ table_name: string; column_name: string }>(
+      `SELECT tc.table_name, kcu.column_name
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.key_column_usage kcu
+           ON kcu.constraint_name = tc.constraint_name AND kcu.table_schema = tc.table_schema
+        WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = $1`,
+      [schema],
+    ),
+    pool.query<{ table_name: string; column_name: string; ftable: string; fcolumn: string }>(
+      `SELECT cl.relname AS table_name, a.attname AS column_name, fcl.relname AS ftable, fa.attname AS fcolumn
+         FROM pg_constraint c
+         JOIN pg_class cl ON cl.oid = c.conrelid
+         JOIN pg_namespace n ON n.oid = cl.relnamespace
+         JOIN pg_class fcl ON fcl.oid = c.confrelid
+         JOIN LATERAL unnest(c.conkey, c.confkey) AS k(attnum, fattnum) ON true
+         JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+         JOIN pg_attribute fa ON fa.attrelid = c.confrelid AND fa.attnum = k.fattnum
+        WHERE c.contype = 'f' AND n.nspname = $1`,
+      [schema],
+    ),
+    pool.query<{ relname: string; n: number }>(
+      `SELECT c.relname, c.reltuples::bigint AS n FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = $1 AND c.relkind = 'r'`,
+      [schema],
+    ),
+  ]);
 
   const pkSet = new Set(pks.rows.map((r) => `${r.table_name}.${r.column_name}`));
   const fkMap = new Map(fks.rows.map((r) => [`${r.table_name}.${r.column_name}`, { table: r.ftable, column: r.fcolumn }]));

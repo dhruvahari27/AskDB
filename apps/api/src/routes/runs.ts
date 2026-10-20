@@ -52,6 +52,10 @@ export function runsRouter(d: ApiDeps): Router {
       );
     } else if (outcome.status === 'awaiting_clarification') {
       await d.db.query(
+        `INSERT INTO clarifications (id, run_id, question, options) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING`,
+        [outcome.clarification.id, runId, outcome.clarification.question, JSON.stringify(outcome.clarification.options)],
+      );
+      await d.db.query(
         `UPDATE query_runs SET status = 'awaiting_clarification', duration_ms = COALESCE(duration_ms, 0) + $2,
                 input_tokens = input_tokens + $3, output_tokens = output_tokens + $4, llm_calls = llm_calls + $5 WHERE id = $1`,
         [runId, outcome.durationMs, usage.inputTokens, usage.outputTokens, usage.llmCalls],
@@ -82,16 +86,6 @@ export function runsRouter(d: ApiDeps): Router {
     const onEvent = (e: RunEvent) => {
       if (e.type === 'done') return; // sent below, after the outcome is saved
       d.runs.push(runId, e);
-      if (e.type === 'clarification_needed') {
-        d.db
-          .query(`INSERT INTO clarifications (id, run_id, question, options) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING`, [
-            e.clarification.id,
-            runId,
-            e.clarification.question,
-            JSON.stringify(e.clarification.options),
-          ])
-          .catch((err) => d.log.error({ err, runId }, 'could not save clarification'));
-      }
     };
     drive(onEvent)
       .then(async (outcome) => {

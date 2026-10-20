@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { repoRoot, type Config } from '@askdb/shared';
 import { CachedProvider, FileCache, MemoryCache, createRedisCache } from './llm/cache';
+import { FallbackProvider } from './llm/fallback';
 import { GeminiProvider } from './llm/gemini';
 import { GroqProvider } from './llm/groq';
 import { MockProvider } from './llm/mock';
@@ -20,6 +21,9 @@ export async function createProvider(cfg: Config, opts: ProviderOptions = {}): P
       break;
     case 'gemini':
       base = new GeminiProvider(cfg.GEMINI_API_KEY, cfg.GEMINI_MODEL);
+      if (cfg.GROQ_API_KEY) {
+        base = new FallbackProvider(base, new GroqProvider(cfg.GROQ_API_KEY, cfg.GROQ_MODEL));
+      }
       break;
     default:
       base = new MockProvider();

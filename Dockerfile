@@ -4,6 +4,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps ./apps
 COPY packages ./packages
+COPY scripts ./scripts
 RUN npm ci
 COPY . .
 RUN npm run build

@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { MemorySaver } from '@langchain/langgraph';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { getConfig } from '@askdb/shared';
+import { getConfig, sanitizeForDb } from '@askdb/shared';
 import { createReadOnlyPool } from '@askdb/sql-guard';
 import { AgentRunner, MemoryGlossary, PgGlossary, cachedCatalogProvider, createProvider, type GlossaryStore } from '@askdb/agent';
 import { createAskDbServer } from './server';
@@ -23,6 +23,11 @@ let glossary: GlossaryStore = new MemoryGlossary();
 let appDb: pg.Pool | undefined;
 try {
   appDb = new pg.Pool({ connectionString: cfg.APP_DATABASE_URL, max: 2, connectionTimeoutMillis: 2000 });
+  const origQuery = appDb.query.bind(appDb);
+  appDb.query = ((text: any, params?: any, cb?: any) => {
+    if (Array.isArray(params)) params = params.map(sanitizeForDb);
+    return origQuery(text, params, cb);
+  }) as typeof appDb.query;
   await appDb.query('SELECT 1 FROM glossary_terms LIMIT 1');
   glossary = new PgGlossary(appDb);
 } catch {

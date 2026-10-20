@@ -4,13 +4,20 @@
 //   npm run db:embedded      (leave this terminal open; Ctrl+C stops the database)
 //
 // Then in another terminal: npm run setup
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import EmbeddedPostgres from 'embedded-postgres';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const port = Number(process.env.PG_PORT || 5433);
+let defaultPort = 5434;
+const envPath = resolve(root, '.env');
+if (existsSync(envPath)) {
+  const envText = readFileSync(envPath, 'utf8');
+  const match = envText.match(/APP_DATABASE_URL=.*?:(\d+)\//);
+  if (match) defaultPort = Number(match[1]);
+}
+const port = Number(process.env.PG_PORT || defaultPort);
 // PG_DATA_DIR lets you keep the data elsewhere (needed when running as root inside a container).
 const databaseDir = process.env.PG_DATA_DIR ? resolve(process.env.PG_DATA_DIR) : resolve(root, '.pgdata');
 

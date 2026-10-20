@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS clarifications (
   created_at  timestamptz NOT NULL DEFAULT now(),
   answered_at timestamptz
 );
+CREATE INDEX IF NOT EXISTS clarifications_run_idx ON clarifications (run_id);
 
 CREATE TABLE IF NOT EXISTS glossary_terms (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -74,6 +75,7 @@ CREATE TABLE IF NOT EXISTS glossary_terms (
   created_at  timestamptz NOT NULL DEFAULT now(),
   UNIQUE (term, definition)
 );
+CREATE INDEX IF NOT EXISTS glossary_status_idx ON glossary_terms (status);
 
 CREATE TABLE IF NOT EXISTS feedback (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),

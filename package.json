@@ -12,6 +12,7 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "node scripts/link-workspaces.mjs",
     "setup": "tsx scripts/setup-db.ts",
     "db:embedded": "node scripts/embedded-db.mjs",
     "dev": "concurrently -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",

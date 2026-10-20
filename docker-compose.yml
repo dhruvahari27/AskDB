@@ -30,8 +30,8 @@ services:
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       REDIS_URL: ${REDIS_URL:-}
       CLIENT_ORIGIN: http://localhost:4711
 

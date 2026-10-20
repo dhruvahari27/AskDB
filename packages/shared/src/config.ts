@@ -27,9 +27,9 @@ export function loadEnv(): void {
 }
 
 const ConfigSchema = z.object({
-  APP_DATABASE_URL: z.string().default('postgres://askdb:askdb@localhost:5433/askdb_app'),
-  WAREHOUSE_ADMIN_URL: z.string().default('postgres://askdb:askdb@localhost:5433/askdb_warehouse'),
-  WAREHOUSE_READONLY_URL: z.string().default('postgres://askdb_ro:askdb_ro@localhost:5433/askdb_warehouse'),
+  APP_DATABASE_URL: z.string().default('postgres://askdb:askdb@localhost:5434/askdb_app'),
+  WAREHOUSE_ADMIN_URL: z.string().default('postgres://askdb:askdb@localhost:5434/askdb_warehouse'),
+  WAREHOUSE_READONLY_URL: z.string().default('postgres://askdb_ro:askdb_ro@localhost:5434/askdb_warehouse'),
   PORT: z.coerce.number().default(4711),
   CLIENT_ORIGIN: z.string().default('http://localhost:4710'),
   JWT_SECRET: z.string().default('dev-only-insecure-secret-change-me'),
@@ -39,7 +39,7 @@ const ConfigSchema = z.object({
   GROQ_API_KEY: z.string().default(''),
   GROQ_MODEL: z.string().default('llama-3.3-70b-versatile'),
   GEMINI_API_KEY: z.string().default(''),
-  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
+  GEMINI_MODEL: z.string().default('gemini-3.8-flash'),
   REDIS_URL: z.string().default(''),
   STATEMENT_TIMEOUT_MS: z.coerce.number().default(5000),
   MAX_RESULT_ROWS: z.coerce.number().default(500),

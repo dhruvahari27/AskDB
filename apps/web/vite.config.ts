@@ -1,11 +1,11 @@
-import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // Ports come from the repo-root .env (WEB_PORT for this dev server, PORT for the API) so they are changed in one place.
 // The browser talks to /api on its own origin; Vite forwards it to Express so cookies and SSE just work.
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, resolve(__dirname, '../..'), '');
+  const env = loadEnv(mode, fileURLToPath(new URL('../..', import.meta.url)), '');
   const webPort = Number(env.WEB_PORT || 4710);
   const apiPort = Number(env.PORT || 4711);
   return {

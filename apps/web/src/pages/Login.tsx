@@ -27,14 +27,24 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
   return (
     <div className="auth-wrap">
       <section className="auth-hero">
-        <div className="brand" style={{ color: '#fff' }}><span className="logo"><Icon name="logo" size={18} /></span> AskDB</div>
+        <div>
+          <div className="brand" style={{ color: '#fff', marginBottom: 16 }}>
+            <span className="logo"><Icon name="logo" size={18} /></span> AskDB
+          </div>
+          <div className="hero-badge">AI-powered analytics — No SQL required</div>
+        </div>
         <h1>Ask your data in plain English. <em>It asks you back</em> only when the answer would change.</h1>
         <p>AskDB writes several readings of your question, runs them all, and compares the actual results. If they agree, you just get the answer. If they differ, you see both and pick.</p>
         <div className="hero-demo" aria-hidden="true">
-          <div className="q">“Who is our best customer?”</div>
+          <div className="q">&ldquo;Who is our best customer?&rdquo;</div>
           <div className="opt">By total revenue — customer with the highest payments</div>
           <div className="opt">By number of orders — the most frequent buyer</div>
-          <div className="muted small" style={{ color: '#9aa0b4' }}>Different readings gave different people, so AskDB asked.</div>
+          <div className="muted small" style={{ color: '#475569' }}>Different readings gave different answers, so AskDB asked.</div>
+        </div>
+        <div className="hero-stats" aria-hidden="true">
+          <div className="hero-stat"><span>SQL</span>Auto-generated</div>
+          <div className="hero-stat"><span>PII</span>Protected</div>
+          <div className="hero-stat"><span>Read-only</span>Enforced</div>
         </div>
       </section>
       <section className="auth-form-wrap">
@@ -51,7 +61,7 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
             {mode === 'register' && <span className="muted small" style={{ fontWeight: 400 }}>At least 8 characters.</span>}
           </label>
           {error && <div className="error-box" role="alert">{error}</div>}
-          <button className="btn primary" disabled={busy} type="submit">{busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}</button>
+          <button className="btn primary" disabled={busy} type="submit">{busy ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create account'}</button>
           <button type="button" className="btn ghost" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>
             {mode === 'login' ? 'New here? Create an account' : 'Already have an account? Sign in'}
           </button>

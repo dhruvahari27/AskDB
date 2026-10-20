@@ -48,8 +48,8 @@ export function metaRouter(d: ApiDeps): Router {
 
   r.get('/stats', async (req, res) => {
     const uid = req.user!.id;
-    const totals = (
-      await d.db.query(
+    const [totalsRes, todayRes, glossaryRes, recentRes, perDayRes, asOfRes] = await Promise.all([
+      d.db.query(
         `SELECT count(*)::int AS runs,
                 count(*) FILTER (WHERE status = 'complete')::int AS completed,
                 count(*) FILTER (WHERE status = 'failed')::int AS failed,
@@ -58,42 +58,36 @@ export function metaRouter(d: ApiDeps): Router {
                 COALESCE(sum(input_tokens + output_tokens), 0)::int AS tokens
            FROM query_runs q WHERE user_id = $1`,
         [uid],
-      )
-    ).rows[0];
-    const today = (
-      await d.db.query(
+      ),
+      d.db.query(
         `SELECT COALESCE(SUM(input_tokens + output_tokens), 0)::int AS n FROM query_runs WHERE user_id = $1 AND created_at >= date_trunc('day', now())`,
         [uid],
-      )
-    ).rows[0].n as number;
-    const glossary = (await d.db.query(`SELECT count(*) FILTER (WHERE status = 'approved')::int AS approved, count(*) FILTER (WHERE status = 'proposed')::int AS proposed FROM glossary_terms`)).rows[0];
-    const recent = (
-      await d.db.query(
+      ),
+      d.db.query(`SELECT count(*) FILTER (WHERE status = 'approved')::int AS approved, count(*) FILTER (WHERE status = 'proposed')::int AS proposed FROM glossary_terms`),
+      d.db.query(
         `SELECT id, question, status, mode, duration_ms AS "durationMs", row_count AS "rowCount", conversation_id AS "conversationId", created_at AS "createdAt",
                 EXISTS (SELECT 1 FROM clarifications c WHERE c.run_id = q.id) AS clarified
            FROM query_runs q WHERE user_id = $1 ORDER BY created_at DESC LIMIT 8`,
         [uid],
-      )
-    ).rows;
-    const perDay = (
-      await d.db.query(
+      ),
+      d.db.query(
         `SELECT to_char(day, 'YYYY-MM-DD') AS day,
                 (SELECT count(*)::int FROM query_runs q WHERE q.user_id = $1 AND q.created_at >= day AND q.created_at < day + interval '1 day') AS runs,
                 (SELECT count(*)::int FROM query_runs q WHERE q.user_id = $1 AND q.created_at >= day AND q.created_at < day + interval '1 day'
                     AND EXISTS (SELECT 1 FROM clarifications c WHERE c.run_id = q.id)) AS clarified
            FROM generate_series(date_trunc('day', now()) - interval '6 days', date_trunc('day', now()), interval '1 day') AS day ORDER BY day`,
         [uid],
-      )
-    ).rows;
-    const asOf = (await d.catalog().catch(() => null))?.asOf ?? null;
+      ),
+      d.catalog().catch(() => null),
+    ]);
     res.json({
-      totals,
-      tokensToday: today,
+      totals: totalsRes.rows[0],
+      tokensToday: todayRes.rows[0].n as number,
       tokenBudget: d.cfg.DAILY_TOKEN_BUDGET,
-      glossary,
-      recent,
-      perDay,
-      asOf,
+      glossary: glossaryRes.rows[0],
+      recent: recentRes.rows,
+      perDay: perDayRes.rows,
+      asOf: asOfRes?.asOf ?? null,
       provider: d.providerLabel,
     });
   });

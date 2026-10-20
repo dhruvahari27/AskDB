@@ -31,7 +31,7 @@ export interface User {
   id: string;
   email: string;
   name?: string | null;
-  role: 'admin' | 'user';
+  role: 'admin' | 'analyst';
 }
 
 export interface ConversationSummary {

@@ -195,7 +195,9 @@ export function AskPage() {
                 return <AnswerCard key={m.id} msg={m} answer={r.answer} onTrace={() => { setTraceFor(m.id); setShowTrace(true); }} />;
               }
               if (r.kind === 'clarification') {
-                return <ClarifyCard key={m.id} runId={m.runId!} clarification={r.clarification} answered={false} onPick={(b) => clarify(m.runId!, b)} />;
+                const msgIdx = messages.findIndex((msg) => msg.id === m.id);
+                const answered = messages.slice(msgIdx + 1).some((msg) => msg.role === 'user');
+                return <ClarifyCard key={m.id} runId={m.runId!} clarification={r.clarification} answered={answered} onPick={(b) => clarify(m.runId!, b)} />;
               }
               return (
                 <div key={m.id} className="card card-pad stack" style={{ borderColor: 'var(--danger)' }}>
