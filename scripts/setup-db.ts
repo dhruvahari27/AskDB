@@ -87,14 +87,19 @@ async function setupWarehouse(): Promise<void> {
       await client.query('ANALYZE');
     }
 
-    const ro = new URL(cfg.WAREHOUSE_READONLY_URL);
-    const roPassword = decodeURIComponent(ro.password).replace(/'/g, "''");
-    const roName = decodeURIComponent(ro.username);
-    if (roName !== 'askdb_ro') console.log(`  note: roles.sql creates the role "askdb_ro"; your WAREHOUSE_READONLY_URL uses "${roName}"`);
-    const sql = readFileSync(resolve(repoRoot, 'warehouse/roles.sql'), 'utf8').replaceAll('__RO_PASSWORD__', roPassword);
-    await client.query(sql);
+    try {
+      const ro = new URL(cfg.WAREHOUSE_READONLY_URL);
+      const roPassword = decodeURIComponent(ro.password).replace(/'/g, "''");
+      const roName = decodeURIComponent(ro.username);
+      if (roName !== 'askdb_ro') console.log(`  note: roles.sql creates the role "askdb_ro"; your WAREHOUSE_READONLY_URL uses "${roName}"`);
+      const sql = readFileSync(resolve(repoRoot, 'warehouse/roles.sql'), 'utf8').replaceAll('__RO_PASSWORD__', roPassword);
+      await client.query(sql);
+      console.log('  read-only role ready.');
+    } catch (e) {
+      console.log(`  (could not configure read-only role: ${(e as Error).message}; continuing)`);
+    }
     const asOf = await client.query('SELECT max(order_purchase_timestamp)::date::text AS d FROM analytics.orders');
-    console.log(`  read-only role ready. Data as-of date (latest order): ${asOf.rows[0].d}`);
+    console.log(`  Data as-of date (latest order): ${asOf.rows[0].d}`);
   } finally {
     await client.end();
   }

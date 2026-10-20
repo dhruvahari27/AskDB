@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: askdb
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: APP_DATABASE_URL
+        fromDatabase:
+          name: askdb-db
+          property: connectionString
+      - key: WAREHOUSE_ADMIN_URL
+        fromDatabase:
+          name: askdb-db
+          property: connectionString
+      - key: WAREHOUSE_READONLY_URL
+        fromDatabase:
+          name: askdb-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: GROQ_API_KEY
+        sync: false
+
+databases:
+  - name: askdb-db
+    databaseName: askdb_app
+    user: askdb
+    plan: free
+    region: oregon
