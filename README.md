@@ -8,6 +8,7 @@
 
 ---
 
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-askdb--i5sc.onrender.com-00C7B7?style=for-the-badge&logo=render&logoColor=white)](https://askdb-i5sc.onrender.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
@@ -18,7 +19,11 @@
 
 <br/>
 
-[Quick Start](#-quick-start) • [How It Works](#-how-it-works--differential-execution) • [SQL Safety](#-sql-safety--4-independent-layers) • [Deployment](#-deployment-guide) • [Architecture](#-architecture--monorepo-structure)
+### 🚀 **[Try the Live Demo: https://askdb-i5sc.onrender.com](https://askdb-i5sc.onrender.com)**
+
+<br/>
+
+[🌐 Live Demo](https://askdb-i5sc.onrender.com) • [Quick Start](#-quick-start) • [How It Works](#-how-it-works--differential-execution) • [SQL Safety](#-sql-safety--4-independent-layers) • [Deployment](#-deployment-guide) • [Architecture](#-architecture--monorepo-structure)
 
 </div>
 
@@ -175,6 +180,9 @@ Because AI generates dynamic SQL, AskDB implements defense-in-depth:
 ---
 
 ## 🌐 Deployment Guide
+
+> **Live Production Deployment:** 👉 **[https://askdb-i5sc.onrender.com](https://askdb-i5sc.onrender.com)**  
+> Hosted on Render with managed PostgreSQL, automated schema migrations, and Groq reasoning.
 
 ### Option 1: Docker Compose (Recommended)
 
